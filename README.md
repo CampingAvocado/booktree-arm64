@@ -92,4 +92,26 @@ options:
   <p>A: Lower the matchrate, Change the fuzzy_match algorith, Set --fixid3 flag.</p>
   
 
+## `docker compose` template
+```yaml
+services:
+  booktree:
+    image: ghcr.io/campingavocado/booktree:latest
+    container_name: booktree
+    
+    environment:
+      - WATCH_DIR=/data/downloads
+    
+    volumes:
+      # Mount your local config directory to /config inside the container
+      - ./config:/config
+      # Mount your local logs directory
+      - ./logs:/logs
+      # Mount your source downloads folder (matches "source_path" in config)
+      - /path/to/your/downloads:/data/downloads
+      # Mount your destination media library (matches "media_path" in config)
+      - /path/to/your/media:/data/media
 
+    # Set restart policy
+    restart: unless-stopped
+```

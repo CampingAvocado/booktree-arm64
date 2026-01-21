@@ -5,7 +5,6 @@ __pycache__
 __cache__
 logs/*
 config/*
-*.sh
 *.csv
 *.json
 private.txt
