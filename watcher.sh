@@ -3,8 +3,9 @@
 # Default vars
 PYTHON="/venv/bin/python"
 SCRIPT="/booktree/booktree.py"
-CONFIG="/config/config.json"
-SETTLE_DURATION=30  # Time in seconds the directory must be quiet before running
+CONFIG_DIR="/config"
+SETTLE_DURATION=30
+EXCLUDE_PATTERN="incomplete" # Regex pattern to ignore
 
 # Validate config
 if [ -z "$WATCH_DIR" ]; then
@@ -12,30 +13,38 @@ if [ -z "$WATCH_DIR" ]; then
     exit 1
 fi
 
-echo "Init: Running full scan on startup..."
-$PYTHON $SCRIPT $CONFIG
+# Function to run all configs
+run_scan() {
+    # Loop through all json files in /config
+    for config_file in "$CONFIG_DIR"/*.json; do
+        if [ -f "$config_file" ]; then
+            echo "------------------------------------------------"
+            echo "Running config: $(basename "$config_file")"
+            echo "------------------------------------------------"
+            $PYTHON $SCRIPT "$config_file"
+        fi
+    done
+}
 
-echo "Watcher: Monitoring $WATCH_DIR for changes..."
-echo "Watcher: Will trigger after $SETTLE_DURATION seconds of silence."
+echo "Init: Running full scan on startup..."
+run_scan
+
+echo "Watcher: Monitoring $WATCH_DIR (excluding '$EXCLUDE_PATTERN')..."
 
 while true; do
-    # 1. BLOCK indefinitely until the FIRST event happens
-    # We filter for close_write (file finish), moved_to (file move), and create
-    inotifywait -r -e close_write -e moved_to -e create "$WATCH_DIR" > /dev/null 2>&1
+    # 1. BLOCK indefinitely until the FIRST event happens (excluding incomplete)
+    inotifywait -r -e close_write -e moved_to -e create --exclude "$EXCLUDE_PATTERN" "$WATCH_DIR" > /dev/null 2>&1
 
     echo "Activity detected. Waiting for $WATCH_DIR to settle..."
 
     # 2. SETTLING LOOP
-    # We keep waiting for SETTLE_DURATION.
-    # If an event happens ('inotifywait' returns 0), the loop repeats (timer resets).
-    # If the timeout expires ('inotifywait' returns 2), the loop breaks.
-    while inotifywait -r -t "$SETTLE_DURATION" -e close_write -e moved_to -e create "$WATCH_DIR" > /dev/null 2>&1; do
+    while inotifywait -r -t "$SETTLE_DURATION" -e close_write -e moved_to -e create --exclude "$EXCLUDE_PATTERN" "$WATCH_DIR" > /dev/null 2>&1; do
         echo "New activity detected. Resetting ${SETTLE_DURATION}s timer..."
     done
 
     # 3. RUN
     echo "Directory stabilized. Syncing..."
-    $PYTHON $SCRIPT $CONFIG
+    run_scan
     
     echo "Scan complete. Resuming watch."
 done

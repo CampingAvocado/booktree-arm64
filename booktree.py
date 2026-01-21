@@ -166,6 +166,14 @@ def buildTreeFromHybridSources(path, mediaPath, files, logfile, cfg):
         pattern = f.translate({ord('['):'[[]', ord(']'):'[]]'})
         print (f"Looking for {f} from {path}")
         allFiles.extend(iglob(f, root_dir=path, recursive=True))
+    
+    #filter out excluded directories
+    exclude_dirs = cfg.get("Config/exclude_dirs", [])
+    if exclude_dirs:
+        if isinstance(exclude_dirs, str): exclude_dirs = [exclude_dirs]
+        print(f"Applying exclusions: {exclude_dirs}")
+        # Keep only files that do NOT have an excluded directory in their path
+        allFiles = [f for f in allFiles if not any(ex_dir in f.split(os.sep) for ex_dir in exclude_dirs)]
 
     #Print how many files were found...
     #print (f"Found {len(allFiles)} files to process...\n\n")
